@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Pacientes</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 30px; }
+        h1 { color: #333; margin-bottom: 20px; text-align: center; }
+        .header-actions { display: flex; gap: 10px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.3s ease; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+        .btn-success { background: #48bb78; color: white; }
+        .btn-success:hover { background: #38a169; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4); }
+        .btn-danger { background: #f56565; color: white; }
+        .btn-danger:hover { background: #e53e3e; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(245, 101, 101, 0.4); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .form-group { display: flex; flex-direction: column; }
+        label { margin-bottom: 8px; color: #333; font-weight: 600; font-size: 14px; }
+        input, select { padding: 10px; border: 2px solid #e2e8f0; border-radius: 5px; font-size: 14px; transition: border-color 0.3s ease; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        .form-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+        .table-container { margin-top: 40px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { background: #667eea; color: white; padding: 12px; text-align: left; font-weight: 600; }
+        td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        tr:hover { background: #f7fafc; }
+        .action-btn { padding: 6px 12px; margin-right: 5px; font-size: 12px; }
+        .message { padding: 15px; border-radius: 5px; margin-bottom: 20px; display: none; }
+        .message.success { background: #c6f6d5; color: #22543d; border: 1px solid #9ae6b4; }
+        .message.error { background: #fed7d7; color: #742a2a; border: 1px solid #fc8181; }
+        .message.info { background: #bee3f8; color: #2c5282; border: 1px solid #90cdf4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 Registro de Pacientes</h1>
+        
+        <div class="header-actions">
+            <button class="btn-primary" onclick="descargarDatos()">⬇️ Descargar Excel</button>
+        </div>
+        
+        <div id="mensaje" class="message"></div>
+        
+        <form id="formPaciente" onsubmit="guardarPaciente(event)">
+            <div class="form-grid">
+                <div class="form-group"><label for="numero">N° / ID *</label><input type="text" id="numero" required></div>
+                <div class="form-group"><label for="nombre">Nombre *</label><input type="text" id="nombre" required></div>
+                <div class="form-group"><label for="edad">Edad</label><input type="text" id="edad"></div>
+                <div class="form-group"><label for="hcl">HCL</label><input type="text" id="hcl"></div>
+                <div class="form-group"><label for="dni">DNI</label><input type="text" id="dni"></div>
+                <div class="form-group"><label for="fi">Fecha Ingreso</label><input type="date" id="fi"></div>
+                <div class="form-group"><label for="alta">Fecha Alta</label><input type="date" id="alta"></div>
+                <div class="form-group"><label for="telemonitoreo">Telemonitoreo</label><input type="date" id="telemonitoreo"></div>
+                <div class="form-group"><label for="hb">HB</label><input type="number" id="hb" min="0" max="250" step="0.1"></div>
+                <div class="form-group"><label for="distrito">Distrito *</label><input type="text" id="distrito" list="distritos" required></div>
+                <div class="form-group"><label for="direccion">Dirección</label><input type="text" id="direccion"></div>
+                <div class="form-group"><label for="telefono1">Teléfono 1</label><input type="tel" id="telefono1"></div>
+                <div class="form-group"><label for="telefono2">Teléfono 2</label><input type="tel" id="telefono2"></div>
+                <div class="form-group"><label for="dniMama">DNI Mamá</label><input type="text" id="dniMama"></div>
+                <div class="form-group"><label for="dx1">DX 1 (Principal) *</label><input type="text" id="dx1" list="diagnosticos" required></div>
+                <div class="form-group"><label for="dx2">DX 2</label><input type="text" id="dx2" list="diagnosticos"></div>
+                <div class="form-group"><label for="dx3">DX 3</label><input type="text" id="dx3" list="diagnosticos"></div>
+                <div class="form-group"><label for="pendientes">Pendientes</label><input type="text" id="pendientes"></div>
+            </div>
+            
+            <datalist id="distritos">
+                <option value="El Agustino"><option value="Santa Anita"><option value="SJL"><option value="Ate"><option value="Provincia"><option value="Lima Cercado"><option value="Pachacamac"><option value="La Molina"><option value="La Victoria"><option value="Cieneguilla"><option value="Carabayllo">
+            </datalist>
+            
+            <datalist id="diagnosticos">
+                <option value="SEPSIS"><option value="Neumonía"><option value="Bronquiolitis"><option value="Crisis Asmática"><option value="EDA"><option value="Sepsis"><option value="Faringitis Aguda"><option value="Otitis Media"><option value="Amigdalitis">
+            </datalist>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn-success">✅ Guardar</button>
+            </div>
+        </form>
+        
+        <div class="table-container">
+            <h2 style="color: #333; margin-bottom: 20px;">Pacientes Registrados</h2>
+            <table id="tablaPacientes">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>HCL</th>
+                    <th>Telemonitoreo</th>
+                    <th>DX 1</th>
+                    <th>Pendientes</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+                <tbody id="cuerpoTabla">
+                    <tr><td colspan="13" style="text-align: center; color: #999;">Cargando datos...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+// Credenciales de Supabase
+const SUPABASE_URL = 'https://bcgrtrswdtqcrvkubrsm.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjZ3J0cnN3ZHRxY3J2a3VicnNtIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTEyMDg0NywiZXhwIjoyMDk2Njk2ODQ3fQ.rPPI8muFxK1HBTG3uDoYOo5bPIbqGUPi8dT7SnZ5D64';
+
+// Variables Globales
+let supabaseClient = null; // Cambiado para evitar conflictos de nombre
+let pacientes = []; 
+let pacienteEditandoId = null;
+
+function inicializarSupabase() {
+    // CORRECCIÓN: El objeto global de la versión 2 es window.supabase (en minúsculas)
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('Supabase inicializado correctamente');
+}
+
+function formatearFecha(fecha) {
+    if (!fecha) return '-';
+    const date = new Date(fecha + 'T00:00:00');
+    return date.toLocaleDateString('es-PE');
+}
+
+function mostrarMensaje(texto, tipo = 'info') {
+    const m = document.getElementById('mensaje');
+    m.textContent = texto;
+    m.className = `message ${tipo}`;
+    m.style.display = 'block';
+    setTimeout(() => { m.style.display = 'none'; }, 4000);
+}
+
+async function cargarDeSupabase() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('pacientes')
+            .select('*');
+
+        if (error) throw error;
+
+        pacientes = data || [];
+        actualizarTabla();
+    } catch (err) {
+        console.error("Error al cargar de Supabase:", err.message);
+        mostrarMensaje('❌ Error al cargar los datos de la nube: ' + err.message, 'error');
+    }
+}
+
+async function guardarPaciente(event) {
+    event.preventDefault();
+    
+    const pacienteData = {
+        id: document.getElementById('numero').value,
+        nombre: document.getElementById('nombre').value,
+        edad: document.getElementById('edad').value,
+        hcl: document.getElementById('hcl').value,
+        dni: document.getElementById('dni').value,
+        fi: document.getElementById('fi').value || null,
+        alta: document.getElementById('alta').value || null,
+        telemonitoreo: document.getElementById('telemonitoreo').value || null,
+        hb: document.getElementById('hb').value || null,
+        distrito: document.getElementById('distrito').value,
+        direccion: document.getElementById('direccion').value,
+        telefono1: document.getElementById('telefono1').value,
+        telefono2: document.getElementById('telefono2').value,
+        dniMama: document.getElementById('dniMama').value,
+        dx1: document.getElementById('dx1').value,
+        dx2: document.getElementById('dx2').value,
+        dx3: document.getElementById('dx3').value,
+        fechaRegistro: new Date().toISOString(),
+        pendientes: document.getElementById('pendientes').value
+    };
+    
+    try {
+        if (pacienteEditandoId) {
+            // ACTUALIZAR (UPDATE)
+            const { error } = await supabaseClient
+                .from('pacientes')
+                .update(pacienteData)
+                .eq('id', pacienteEditandoId);
+
+            if (error) throw error;
+            mostrarMensaje('✅ Paciente actualizado en la nube', 'success');
+            pacienteEditandoId = null;
+        } else {
+            // INSERTAR (NUEVO)
+            const { error } = await supabaseClient
+                .from('pacientes')
+                .insert([pacienteData]);
+
+            if (error) throw error;
+            mostrarMensaje('✅ Paciente guardado en la nube correctamente', 'success');
+        }
+
+        document.getElementById('formPaciente').reset();
+        await cargarDeSupabase();
+
+    } catch (err) {
+        console.error("Error al enviar a Supabase:", err.message);
+        mostrarMensaje('❌ Error al guardar en Supabase: ' + err.message, 'error');
+    }
+}
+
+function agregarFilaTabla(paciente, indice) {
+    const tbody = document.getElementById('cuerpoTabla');
+    const fila = tbody.insertRow();
+    
+    // Se eliminaron las columnas solicitadas y se agregó 'pendientes'
+    fila.innerHTML = `
+        <td>${paciente.nombre}</td>
+        <td>${paciente.hcl || '-'}</td>
+        <td>${formatearFecha(paciente.telemonitoreo)}</td>
+        <td>${paciente.dx1}</td>
+        <td>${paciente.pendientes || '-'}</td>
+        <td>
+            <button class="action-btn btn-primary" onclick="editarPaciente('${paciente.id}')">✏️ Editar</button>
+            <button class="action-btn btn-danger" onclick="eliminarPaciente('${paciente.id}')">🗑️ Eliminar</button>
+        </td>
+    `;
+}
+
+function actualizarTabla() {
+    const tbody = document.getElementById('cuerpoTabla');
+    tbody.innerHTML = '';
+    
+    if (pacientes.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #999;">No hay pacientes en la base de datos</td></tr>';
+    } else {
+        pacientes.forEach((p, i) => agregarFilaTabla(p, i));
+    }
+}
+
+async function eliminarPaciente(id) {
+    if (confirm('¿Estás seguro de eliminar este paciente de la nube?')) {
+        try {
+            const { error } = await supabaseClient
+                .from('pacientes')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            mostrarMensaje('✅ Paciente eliminado de Supabase', 'success');
+            await cargarDeSupabase(); 
+        } catch (err) {
+            console.error("Error al eliminar en Supabase:", err.message);
+            mostrarMensaje('❌ Error al eliminar: ' + err.message, 'error');
+        }
+    }
+}
+
+function editarPaciente(id) {
+    const p = pacientes.find(paciente => paciente.id === id || paciente.id == id);
+    if (!p) return;
+
+    pacienteEditandoId = p.id; 
+
+    // Llenamos el formulario con los datos existentes
+    document.getElementById('numero').value = p.id || '';
+    document.getElementById('nombre').value = p.nombre || '';
+    document.getElementById('edad').value = p.edad || '';
+    document.getElementById('hcl').value = p.hcl || '';
+    document.getElementById('dni').value = p.dni || '';
+    document.getElementById('fi').value = p.fi || '';
+    document.getElementById('alta').value = p.alta || '';
+    document.getElementById('telemonitoreo').value = p.telemonitoreo || '';
+    document.getElementById('hb').value = p.hb || '';
+    document.getElementById('distrito').value = p.distrito || '';
+    document.getElementById('direccion').value = p.direccion || '';
+    document.getElementById('telefono1').value = p.telefono1 || '';
+    document.getElementById('telefono2').value = p.telefono2 || '';
+    document.getElementById('dniMama').value = p.dniMama || '';
+    document.getElementById('dx1').value = p.dx1 || '';
+    document.getElementById('dx2').value = p.dx2 || '';
+    document.getElementById('dx3').value = p.dx3 || '';
+    document.getElementById('pendientes').value = p.pendientes || '';
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    mostrarMensaje('Modifica los datos y presiona Guardar para actualizar la nube', 'info');
+}
+
+async function descargarDatos() {
+    try {
+        console.log("Iniciando descarga...");
+        const { data, error } = await supabaseClient.from('pacientes').select('*');
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            alert("No hay datos en la tabla para descargar.");
+            return;
+        }
+
+        const cabeceras = Object.keys(data[0]).join(',');
+        // CORRECCIÓN CSV: Envolver los valores en comillas por si contienen comas (ej: Direcciones)
+        const filas = data.map(fila => 
+            Object.values(fila).map(valor => {
+                let str = valor === null || valor === undefined ? '' : String(valor);
+                return `"${str.replace(/"/g, '""')}"`; // Escapar comillas dobles
+            }).join(',')
+        ).join('\n');
+        
+        const contenidoCSV = cabeceras + '\n' + filas;
+
+        const blob = new Blob(["\uFEFF" + contenidoCSV], { type: 'text/csv;charset=utf-8;' }); // \uFEFF para soportar acentos en Excel
+        const url = URL.createObjectURL(blob);
+        
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = 'pacientes_supabase.csv';
+        enlace.style.display = 'none';
+        
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        URL.revokeObjectURL(url);
+
+    } catch (err) {
+        console.error("Error al descargar:", err.message);
+        alert("Error al descargar: " + err.message);
+    }
+}
+
+// Inicialización al cargar la página
+document.addEventListener('DOMContentLoaded', () => {
+    inicializarSupabase();
+    cargarDeSupabase(); 
+});
+    </script>
+</body>
+</html>
